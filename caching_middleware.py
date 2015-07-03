@@ -25,7 +25,6 @@ def cache(app, _cache=dict()):
             _cache[pathinfo][querystr] = get_data(environ, start_response)
         else:
             start_response(_cache[pathinfo][querystr]['status'], _cache[pathinfo][querystr]['headers'])
-        print 'get_from_cache'
         return _cache[pathinfo][querystr]['response']
 
     return wrapped_app
