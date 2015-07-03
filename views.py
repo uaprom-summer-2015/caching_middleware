@@ -1,8 +1,10 @@
+import time
 from util import controller, Response, Router
 
 
 @controller
 def index(request):
+    time.sleep(5)
     return Response(200, "It works!")
 
 @controller
