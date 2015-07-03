@@ -3,6 +3,9 @@ from example_server import simple_app
 
 import time
 
+TIMEOUT = 30
+
+
 def cache(app, _cache=dict()):
 
     def now():
@@ -16,16 +19,16 @@ def cache(app, _cache=dict()):
         data['status'] = start_response.im_self.status
         return data
 
+    def is_cache_expired(key):
+        return _cache[key]['timestamp'] + TIMEOUT < now()
+
     def wrapped_app(environ, start_response):
-        pathinfo = environ['PATH_INFO']
-        querystr = environ['QUERY_STRING']
-        if not pathinfo in _cache.iterkeys():
-            _cache[pathinfo] = dict() 
-        if (not querystr in _cache[pathinfo].iterkeys()) or (_cache[pathinfo][querystr]['timestamp'] + 3600 < now()):
-            _cache[pathinfo][querystr] = get_data(environ, start_response)
+        key = environ['PATH_INFO'] + '?' + environ['QUERY_STRING']
+        if (key not in _cache.iterkeys()) or is_cache_expired(key):
+            _cache[key] = get_data(environ, start_response)
         else:
-            start_response(_cache[pathinfo][querystr]['status'], _cache[pathinfo][querystr]['headers'])
-        return _cache[pathinfo][querystr]['response']
+            start_response(_cache[key]['status'], _cache[key]['headers'])
+        return _cache[key]['response']
 
     return wrapped_app
 
