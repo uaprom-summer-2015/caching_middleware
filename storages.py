@@ -1,6 +1,7 @@
+import os
 import sqlite3
 import config
-
+from contextlib import contextmanager
 
 class Storage(object):
     def save(self, *args, **kwargs):
@@ -12,7 +13,11 @@ class Storage(object):
 
 class DatabaseStorage(Storage):
     def __init__(self):
-        self.connection = sqlite3.connect(config.DATABASE_NAME + '.db')
+        if not os.path.exists(config.DATABASE_PATH):
+            self.create_db(config.DATABASE_PATH)
+
+        self.path = config.DATABASE_PATH
+        self.connection = sqlite3.connect(self.path)
         self.cursor = self.connection.cursor()
 
     def __del__(self):
@@ -33,19 +38,31 @@ class DatabaseStorage(Storage):
         else:
             return [response]
 
+    def exists(self, url_hash):
+        result = self.cursor.execute('SELECT COUNT(*) FROM cache HAVING url_hash=?', (url_hash,))
+        return False if result.rowcount == -1 else True
 
+    @staticmethod
+    def create_db(path):
+        with sqlite3.connect(path) as connection:
+            cursor = connection.cursor()
+            cursor.execute("CREATE TABLE cache (url_hash TEXT, headers TEXT, response TEXT)")
+            connection.commit()
+
+
+@contextmanager
 class SimpleCache(object):
-    __storage_types = {
+    _storage_types = {
         'FILE': None,
         'DATABASE': DatabaseStorage,
         'MEMORY': None,
     }
 
     def __init__(self, storage_type_name):
-        self.storage = self.__storage_types[storage_type_name]()
+        self.storage = self._storage_types[storage_type_name]()
 
-    def save(self, url_hash, response):
-        self.storage.save(url_hash, response)
+    def save(self, url_hash, headers, response):
+        self.storage.save(url_hash, headers, response)
 
     def load(self, url_hash):
         return self.storage.load(url_hash)

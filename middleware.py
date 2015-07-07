@@ -7,15 +7,19 @@ class CacheMiddleware(object):
         self.app = app
 
     def __call__(self, environ, start_response):
-        url_query = environ['PATH_INFO'] + '?' + environ['QUERY_STRING']
+        def wrapped_start_response(status, response_headers):
+            headers.extend((status, response_headers))
+            return start_response(status, response_headers)
 
-        cache = SimpleCache(config.CACHE_STORAGE_TYPE)
-        cached = cache.load(hash(url_query))
+        with SimpleCache(config.CACHE_STORAGE_TYPE) as cache:
+            url_hash = hash(environ['PATH_INFO'] + '?' + environ['QUERY_STRING'])
+            headers = []
 
-        if not cached:
-            response = self.app(environ, start_response)
-            cache.save(hash(url_query), response)
-        else:
-            response = cached
+            if cache.exists(url_hash):
+                (status, response_headers), response = cache.load(url_hash)
+                start_response(status, response_headers)
+            else:
+                response = self.app(environ, wrapped_start_response)
+                cache.save(url_hash, headers, response)
 
-        return response
+            return response
