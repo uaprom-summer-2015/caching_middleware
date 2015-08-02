@@ -1,5 +1,6 @@
-import config
-from storages import SimpleCache
+from urllib.parse import parse_qsl
+from config import cache_config
+from cache import Cache
 
 
 class CacheMiddleware(object):
@@ -7,15 +8,26 @@ class CacheMiddleware(object):
         self.app = app
 
     def __call__(self, environ, start_response):
-        url_query = environ['PATH_INFO'] + '?' + environ['QUERY_STRING']
+        cache = Cache(cache_config)
+        cache_control = do_caching(environ.get('Cache-Control', ''))
+        url = "{path}?{query}".format(path=environ.get('PATH_INFO'),
+                                      query=get_sorted_query(environ.get('QUERY_STRING')))
 
-        cache = SimpleCache(config.CACHE_STORAGE_TYPE)
-        cached = cache.load(hash(url_query))
-
-        if not cached:
-            response = self.app(environ, start_response)
-            cache.save(hash(url_query), response)
+        if url in cache:
+            response = [cache[url]]
+            start_response("200 OK", [('Content-Type', 'text/plain')])
         else:
-            response = cached
-
+            response = self.app(environ, start_response)
+            if cache_control:
+                cache[url] = "".join(piece.decode() for piece in response)
         return response
+
+
+def get_sorted_query(query_string):
+    query_list = parse_qsl(query_string)
+    query_list.sort(key=lambda value: value[0])
+    return '&'.join(('='.join(pair) for pair in query_list))
+
+
+def do_caching(header_value):
+    return False if header_value == 'no-cache' else True

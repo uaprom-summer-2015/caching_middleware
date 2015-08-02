@@ -1,2 +1,14 @@
-CACHE_STORAGE_TYPE = 'DATABASE'
-DATABASE_NAME = 'db_cache'
+cache_config = {
+    'storage_type': 'redis',
+    'host': 'localhost',
+    'port': 6379,
+}
+
+# cache_config = {
+#     'storage_type': 'file',
+#     'path': 'path/to/file'
+# }
+
+# cache_config = {
+#     'storage_type': 'memory',
+# }
